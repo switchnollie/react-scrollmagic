@@ -1,6 +1,6 @@
 // @flow
-import { default as React } from 'react';
-import ScrollMagic from './lib/scrollmagic';
+import { default as React } from "react";
+import ScrollMagic from "./lib/scrollmagic";
 
 export type ControllerProps = {
   children: Node,
@@ -8,20 +8,21 @@ export type ControllerProps = {
   vertical?: boolean,
   globalSceneOptions?: any,
   loglevel?: number,
-  refreshInterval?: number,
-
-}
+  refreshInterval?: number
+};
 
 export type ControllerState = {
-  controller: ?any,
-}
+  controller: ?any
+};
+
+const ControllerContext = React.createContext(null);
 
 class Controller extends React.Component<ControllerProps, ControllerState> {
   controller: any;
 
   state: ControllerState = {
-    controller: null,
-  }
+    controller: null
+  };
 
   componentDidMount() {
     const { children, ...controllerProps } = this.props;
@@ -42,14 +43,12 @@ class Controller extends React.Component<ControllerProps, ControllerState> {
       return children;
     }
 
-    return React.Children.map(children, (child) => {
-      if (child.type.displayName !== 'Scene') {
-        return child;
-      }
-      const props = {...child.props, controller};
-      return <child.type {...props} />;
-    });
+    return (
+      <ControllerContext.Provider value={controller}>
+        {children}
+      </ControllerContext.Provider>
+    );
   }
 }
 
-export { Controller };
+export { Controller, ControllerContext };

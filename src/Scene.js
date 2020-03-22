@@ -1,14 +1,15 @@
 // @flow
-import { default as React } from 'react';
-import ScrollMagic from './lib/scrollmagic';
-import debugAddIndicators from './lib/debug.addIndicators.js';
+import { default as React } from "react";
+import { ControllerContext } from "./Controller";
+import ScrollMagic from "./lib/scrollmagic";
+import debugAddIndicators from "./lib/debug.addIndicators.js";
 
 debugAddIndicators(ScrollMagic);
 
 export type PinSettings = {
   pushFollowers?: boolean,
-  spacerClass?: string,
-}
+  spacerClass?: string
+};
 
 export type SceneProps = {
   children: Node | Function,
@@ -22,88 +23,95 @@ export type SceneProps = {
   loglevel?: number,
   indicators?: boolean,
   enabled?: boolean,
+  onEnter?: () => any,
+  onLeave?: () => AnalyserNode,
+  onToggle?: (b: boolean) => any,
 
   /* setClassToggle */
   classToggle?: string | Array<string>,
 
   /* setPin */
-  pin?: boolean | PinSettings,
-
-}
+  pin?: boolean | PinSettings
+};
 
 export type SceneBaseProps = SceneProps & {
-  controller: any,
-}
+  controller: any
+};
 
 export type SceneBaseState = {
   progress: number,
-  event: any,
-}
+  event: any
+};
 
 const refOrInnerRef = (child: any) => {
   if (
-    child.type && 
-    child.type.$$typeof && 
-    child.type.$$typeof.toString() === 'Symbol(react.forward_ref)')
-  {
-    return 'ref';
+    child.type &&
+    child.type.$$typeof &&
+    child.type.$$typeof.toString() === "Symbol(react.forward_ref)"
+  ) {
+    return "ref";
   }
 
   // styled-components < 4
   if (child.type && child.type.styledComponentId) {
-    return 'innerRef';
+    return "innerRef";
   }
 
-  return 'ref';
-}
+  return "ref";
+};
 
-const isGSAP = (child) => {
+const isGSAP = child => {
   if (
-    React.Children.count(child) === 1 && 
-    child.type && 
-    (child.type.displayName === 'Tween' || child.type.displayName === 'Timeline')
+    React.Children.count(child) === 1 &&
+    child.type &&
+    (child.type.displayName === "Tween" ||
+      child.type.displayName === "Timeline")
   ) {
     return true;
   }
   return false;
-}
+};
 
 const controlGSAP = (child, progress, event) => {
   if (isGSAP(child)) {
-    const props = {...child.props, totalProgress: progress, paused: true };
-    return <div><child.type {...props} /></div>;
+    const props = { ...child.props, totalProgress: progress, paused: true };
+    return (
+      <div>
+        <child.type {...props} />
+      </div>
+    );
   }
   return child;
-}
+};
 
 const callChildFunction = (children, progress, event) => {
-  if (children && typeof children === 'function') {
+  if (children && typeof children === "function") {
     return children(progress, event);
   }
   return children;
-}
+};
 
 const getChild = (children, progress, event) => {
   children = controlGSAP(children, progress, event);
   children = callChildFunction(children, progress, event);
   return React.Children.only(children);
-}
+};
 
-const isString = (element) => {
-  if (typeof element === 'string' || element instanceof String) {
+const isString = element => {
+  if (typeof element === "string" || element instanceof String) {
     return true;
   }
   return false;
-}
+};
 
 class SceneBase extends React.PureComponent<SceneBaseProps, SceneBaseState> {
   ref: HTMLElement;
   scene: any;
   child: any;
   state: SceneBaseState = {
-    event: 'init',
-    progress: 0,
-  }
+    event: "init",
+    progress: 0
+  };
 
   componentDidMount() {
     const {
@@ -118,7 +126,10 @@ class SceneBase extends React.PureComponent<SceneBaseProps, SceneBaseState> {
     } = this.props;
 
     const element = this.ref;
-    sceneParams.triggerElement = sceneParams.triggerElement === null ? null : sceneParams.triggerElement || element;
+    sceneParams.triggerElement =
+      sceneParams.triggerElement === null
+        ? null
+        : sceneParams.triggerElement || element;
 
     this.scene = new ScrollMagic.Scene(sceneParams);
 
@@ -133,7 +144,7 @@ class SceneBase extends React.PureComponent<SceneBaseProps, SceneBaseState> {
     }
 
     if (indicators) {
-      this.scene.addIndicators({ name: ' ' });
+      this.scene.addIndicators({ name: " " });
     }
 
     if (enabled !== undefined) {
@@ -150,7 +161,7 @@ class SceneBase extends React.PureComponent<SceneBaseProps, SceneBaseState> {
       triggerElement,
       triggerHook,
       reverse,
-      enabled,
+      enabled
     } = this.props;
 
     if (duration !== undefined && duration !== prevProps.duration) {
@@ -161,7 +172,10 @@ class SceneBase extends React.PureComponent<SceneBaseProps, SceneBaseState> {
       this.scene.offset(offset);
     }
 
-    if (triggerElement !== undefined && triggerElement !== prevProps.triggerElement) {
+    if (
+      triggerElement !== undefined &&
+      triggerElement !== prevProps.triggerElement
+    ) {
       // this.scene.triggerElement(triggerElement);
     }
 
@@ -185,8 +199,7 @@ class SceneBase extends React.PureComponent<SceneBaseProps, SceneBaseState> {
   setClassToggle(scene, element, classToggle) {
     if (Array.isArray(classToggle) && classToggle.length === 2) {
       scene.setClassToggle(classToggle[0], classToggle[1]);
-    }
-    else {
+    } else {
       scene.setClassToggle(element, classToggle);
     }
   }
@@ -197,19 +210,38 @@ class SceneBase extends React.PureComponent<SceneBaseProps, SceneBaseState> {
   }
 
   initEventHandlers() {
-    let { children } = this.props;
+    let { children, onEnter, onLeave, onToggle } = this.props;
 
-    if (typeof children !== 'function' && !isGSAP(callChildFunction(children, 0, 'init'))) {
+    if (
+      typeof children !== "function" &&
+      !isGSAP(callChildFunction(children, 0, "init"))
+    ) {
       return;
     }
 
-    this.scene.on('start end enter leave', (event) => {
+    this.scene.on("enter", event => {
+      this.setState({
+        event
+      });
+      onEnter && onEnter();
+      onToggle && onToggle(true);
+    });
+
+    this.scene.on("leave", event => {
+      this.setState({
+        event
+      });
+      onLeave && onLeave();
+      onToggle && onToggle(false);
+    });
+
+    this.scene.on("start end", event => {
       this.setState({
         event
       });
     });
 
-    this.scene.on('progress', (event) => {
+    this.scene.on("progress", event => {
       this.setState({
         progress: event.progress
       });
@@ -222,28 +254,36 @@ class SceneBase extends React.PureComponent<SceneBaseProps, SceneBaseState> {
 
     const child = getChild(children, progress, event);
 
-    // TODO: Don't add ref to stateless or stateful components 
+    // TODO: Don't add ref to stateless or stateful components
 
-    return React.cloneElement(child, { [refOrInnerRef(child)]: ref => this.ref = ref });
+    return React.cloneElement(child, {
+      [refOrInnerRef(child)]: ref => (this.ref = ref)
+    });
   }
 }
 
-class Scene extends React.PureComponent<SceneProps, {}> {
-  static displayName = 'Scene';
+class SceneWrapper extends React.PureComponent<SceneProps, {}> {
+  static displayName = "Scene";
 
   render() {
     if (!this.props.controller) {
       let { children } = this.props;
       const progress = 0;
-      const event = 'init';
+      const event = "init";
 
       return getChild(children, progress, event);
     }
 
-    return (
-      <SceneBase {...this.props} />
-    );
+    return <SceneBase {...this.props} />;
   }
 }
 
-export { Scene };
+export const Scene = ({ children, ...props }) => (
+  <ControllerContext.Consumer>
+    {controller => (
+      <SceneWrapper controller={controller} {...props}>
+        {children}
+      </SceneWrapper>
+    )}
+  </ControllerContext.Consumer>
+);
