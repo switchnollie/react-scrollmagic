@@ -122,6 +122,9 @@ class SceneBase extends React.PureComponent<SceneBaseProps, SceneBaseState> {
       pinSettings,
       indicators,
       enabled,
+      onEnter,
+      onLeave,
+      onToggle,
       ...sceneParams
     } = this.props;
 
