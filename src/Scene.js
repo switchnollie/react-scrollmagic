@@ -214,16 +214,12 @@ class SceneBase extends React.PureComponent<SceneBaseProps, SceneBaseState> {
 
   initEventHandlers() {
     let { children, onEnter, onLeave, onToggle } = this.props;
-
-    if (
-      typeof children !== "function" &&
-      !isGSAP(callChildFunction(children, 0, "init"))
-    ) {
-      return;
-    }
+    const trackEventsInState =
+      typeof children === "function" ||
+      isGSAP(callChildFunction(children, 0, "init"));
 
     this.scene.on("enter", event => {
-      this.setState({
+      trackEventsInState && this.setState({
         event
       });
       onEnter && onEnter();
@@ -231,7 +227,7 @@ class SceneBase extends React.PureComponent<SceneBaseProps, SceneBaseState> {
     });
 
     this.scene.on("leave", event => {
-      this.setState({
+      trackEventsInState && this.setState({
         event
       });
       onLeave && onLeave();
@@ -239,13 +235,13 @@ class SceneBase extends React.PureComponent<SceneBaseProps, SceneBaseState> {
     });
 
     this.scene.on("start end", event => {
-      this.setState({
+      trackEventsInState && this.setState({
         event
       });
     });
 
     this.scene.on("progress", event => {
-      this.setState({
+      trackEventsInState && this.setState({
         progress: event.progress
       });
     });
