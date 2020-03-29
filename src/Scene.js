@@ -1,36 +1,19 @@
 import React, { useRef, useState, useEffect } from "react";
 import { ControllerContext } from "./ControllerContext";
+import {
+  objectWithoutKeys,
+  isString,
+  isNumber,
+  isBoolean,
+  isTriggerHook,
+  isTriggerElement,
+  isGSAP,
+  refOrInnerRef
+} from "./utils";
 import ScrollMagic from "./lib/scrollmagic";
 import debugAddIndicators from "./lib/debug.addIndicators.js";
 
 debugAddIndicators(ScrollMagic);
-const refOrInnerRef = child => {
-  if (
-    child.type &&
-    child.type.$$typeof &&
-    child.type.$$typeof.toString() === "Symbol(react.forward_ref)"
-  ) {
-    return "ref";
-  }
-
-  // styled-components < 4
-  if (child.type && child.type.styledComponentId) {
-    return "innerRef";
-  }
-
-  return "ref";
-};
-const isGSAP = child => {
-  if (
-    React.Children.count(child) === 1 &&
-    child.type &&
-    (child.type.displayName === "Tween" ||
-      child.type.displayName === "Timeline")
-  ) {
-    return true;
-  }
-  return false;
-};
 
 const controlGSAP = (child, progress, event) => {
   if (isGSAP(child)) {
@@ -51,46 +34,53 @@ const callChildFunction = (children, progress, event) => {
 };
 
 const getChild = (children, progress, event) => {
-  children = controlGSAP(children, progress, event);
-  children = callChildFunction(children, progress, event);
-  return React.Children.only(children);
+  let renderedChildren = controlGSAP(children, progress, event);
+  renderedChildren = callChildFunction(children, progress, event);
+  return React.Children.only(renderedChildren);
 };
 
-const isString = element => {
-  if (typeof element === "string" || element instanceof String) {
-    return true;
-  }
-  return false;
-};
-
-const SceneBase = ({
-  children,
-  controller,
-  classToggle,
-  pin,
-  pinSettings,
-  indicators,
-  enabled,
-  triggerElement,
-  duration,
-  ...other
-}) => {
-  const ref = useRef(null);
+const SceneBase = props => {
+  const {
+    children,
+    controller,
+    classToggle,
+    pin,
+    pinSettings,
+    indicators,
+    enabled,
+    triggerElement,
+    duration,
+    offset,
+    triggerHook,
+    reverse
+  } = props;
+  const element = useRef(null);
   const scene = useRef(null);
   const [event, setEvent] = useState("init");
   const [progress, setProgress] = useState(0);
 
   useEffect(() => {
-    const element = ref.current;
-    sceneParams.triggerElement =
-      triggerElement === null ? null : triggerElement || element;
-
+    const sceneParams = objectWithoutKeys(props, [
+      "children",
+      "controller",
+      "classToggle",
+      "pin",
+      "pinSettings",
+      "indicators",
+      "enabled"
+    ]);
+    if (triggerElement === null) {
+      element.current = null;
+    } else if (isTriggerElement(triggerElement)) {
+      element.current = triggerElement;
+    }
     scene.current = new ScrollMagic.Scene(sceneParams);
 
     initEventHandlers();
 
     if (classToggle) {
-      setClassToggle(scene.current, element, classToggle);
+      console.log({ classToggle, element, scene, triggerElement });
+      setClassToggle(scene, element, classToggle);
     }
 
     if (pin || pinSettings) {
@@ -104,35 +94,38 @@ const SceneBase = ({
     if (enabled !== undefined) {
       scene.current.enabled(enabled);
     }
-    scene.current.addTo(controller);
-
     return scene.current.destroy;
-  });
+  }, []);
 
   useEffect(() => {
-    scene.current.duration(duration);
+    controller && scene.current.addTo(controller);
+  }, [controller]);
+
+  useEffect(() => {
+    isNumber(duration) && scene.current.duration(duration);
   }, [duration]);
   useEffect(() => {
-    scene.current.offset(offset);
+    isNumber(offset) && scene.current.offset(offset);
   }, [offset]);
   useEffect(() => {
-    scene.current.triggerElement(triggerElement);
+    isTriggerElement(triggerElement) &&
+      scene.current.triggerElement(triggerElement);
   }, [triggerElement]);
   useEffect(() => {
-    scene.current.triggerHook(triggerHook);
+    isTriggerHook(triggerHook) && scene.current.triggerHook(triggerHook);
   }, [triggerHook]);
   useEffect(() => {
-    scene.current.reverse(reverse);
+    isBoolean(reverse) && scene.current.reverse(reverse);
   }, [reverse]);
   useEffect(() => {
-    scene.current.enabled(enabled);
+    isBoolean(enabled) && scene.current.enabled(enabled);
   }, [enabled]);
 
   function setClassToggle(scene, element, classToggle) {
     if (Array.isArray(classToggle) && classToggle.length === 2) {
-      scene.setClassToggle(classToggle[0], classToggle[1]);
+      scene.current.setClassToggle(classToggle[0], classToggle[1]);
     } else {
-      scene.setClassToggle(element, classToggle);
+      scene.current.setClassToggle(element.current, classToggle);
     }
   }
 
@@ -159,30 +152,24 @@ const SceneBase = ({
   }
 
   const child = getChild(children, progress, event);
-
-  return React.cloneElement(child, { [refOrInnerRef(child)]: ref });
-};
-
-const SceneWrapper = ({ children, controller, ...props }) => {
-  if (!controller) {
-    const progress = 0;
-    const event = "init";
-
-    return getChild(children, progress, event);
+  if (isTriggerElement(triggerElement)) {
+    return child;
   }
-
-  return <SceneBase {...props} />;
+  return React.cloneElement(child, { [refOrInnerRef(child)]: element });
 };
-SceneWrapper.displayName = "Scene";
 
 export default function Scene({ children, ...props }) {
   return (
     <ControllerContext.Consumer>
-      {controller => (
-        <SceneWrapper controller={controller} {...props}>
-          {children}
-        </SceneWrapper>
-      )}
+      {controller =>
+        controller ? (
+          <SceneBase controller={controller} {...props}>
+            {children}
+          </SceneBase>
+        ) : (
+          getChild(children, 0, "init")
+        )
+      }
     </ControllerContext.Consumer>
   );
 }
