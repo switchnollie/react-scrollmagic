@@ -1,76 +1,25 @@
-// @flow
-import { default as React } from "react";
-import { ControllerContext } from "./Controller";
+import React, {
+  useRef,
+  useState,
+  useEffect,
+  Children,
+  cloneElement
+} from "react";
+import { ControllerContext } from "./ControllerContext";
+import {
+  objectWithoutKeys,
+  isString,
+  isNumber,
+  isBoolean,
+  isTriggerHook,
+  isTriggerElement,
+  isGSAP,
+  refOrInnerRef
+} from "./utils";
 import ScrollMagic from "./lib/scrollmagic";
 import debugAddIndicators from "./lib/debug.addIndicators.js";
 
 debugAddIndicators(ScrollMagic);
-
-export type PinSettings = {
-  pushFollowers?: boolean,
-  spacerClass?: string
-};
-
-export type SceneProps = {
-  children: Node | Function,
-
-  // scene parameters
-  duration?: number | string,
-  offset?: number | string,
-  triggerElement?: string | object,
-  triggerHook?: number | string,
-  reverse?: boolean,
-  loglevel?: number,
-  indicators?: boolean,
-  enabled?: boolean,
-  onEnter?: () => any,
-  onLeave?: () => AnalyserNode,
-  onToggle?: (b: boolean) => any,
-
-  /* setClassToggle */
-  classToggle?: string | Array<string>,
-
-  /* setPin */
-  pin?: boolean | PinSettings
-};
-
-export type SceneBaseProps = SceneProps & {
-  controller: any
-};
-
-export type SceneBaseState = {
-  progress: number,
-  event: any
-};
-
-const refOrInnerRef = (child: any) => {
-  if (
-    child.type &&
-    child.type.$$typeof &&
-    child.type.$$typeof.toString() === "Symbol(react.forward_ref)"
-  ) {
-    return "ref";
-  }
-
-  // styled-components < 4
-  if (child.type && child.type.styledComponentId) {
-    return "innerRef";
-  }
-
-  return "ref";
-};
-
-const isGSAP = child => {
-  if (
-    React.Children.count(child) === 1 &&
-    child.type &&
-    (child.type.displayName === "Tween" ||
-      child.type.displayName === "Timeline")
-  ) {
-    return true;
-  }
-  return false;
-};
 
 const controlGSAP = (child, progress, event) => {
   if (isGSAP(child)) {
@@ -83,7 +32,6 @@ const controlGSAP = (child, progress, event) => {
   }
   return child;
 };
-
 const callChildFunction = (children, progress, event) => {
   if (children && typeof children === "function") {
     return children(progress, event);
@@ -92,197 +40,146 @@ const callChildFunction = (children, progress, event) => {
 };
 
 const getChild = (children, progress, event) => {
-  children = controlGSAP(children, progress, event);
-  children = callChildFunction(children, progress, event);
-  return React.Children.only(children);
+  let renderedChildren = controlGSAP(children, progress, event);
+  renderedChildren = callChildFunction(renderedChildren, progress, event);
+  return Children.only(renderedChildren);
 };
 
-const isString = element => {
-  if (typeof element === "string" || element instanceof String) {
-    return true;
-  }
-  return false;
-};
+const SceneBase = props => {
+  const {
+    children,
+    controller,
+    classToggle,
+    pin,
+    pinSettings,
+    indicators,
+    enabled,
+    triggerElement,
+    duration,
+    offset,
+    triggerHook,
+    reverse
+  } = props;
+  const element = useRef(null);
+  const scene = useRef(null);
+  const [event, setEvent] = useState("init");
+  const [progress, setProgress] = useState(0);
 
-class SceneBase extends React.PureComponent<SceneBaseProps, SceneBaseState> {
-  ref: HTMLElement;
-  scene: any;
-  child: any;
-  state: SceneBaseState = {
-    event: "init",
-    progress: 0
-  };
+  useEffect(() => {
+    const sceneParams = objectWithoutKeys(props, [
+      "children",
+      "controller",
+      "classToggle",
+      "pin",
+      "pinSettings",
+      "indicators",
+      "enabled",
+      "triggerElement"
+    ]);
+    if (triggerElement === null) {
+      element.current = null;
+    } else if (isTriggerElement(triggerElement)) {
+      element.current = triggerElement;
+    }
+    scene.current = new ScrollMagic.Scene({
+      ...sceneParams,
+      triggerElement: element.current
+    });
 
-  componentDidMount() {
-    const {
-      children,
-      controller,
-      classToggle,
-      pin,
-      pinSettings,
-      indicators,
-      enabled,
-      onEnter,
-      onLeave,
-      onToggle,
-      ...sceneParams
-    } = this.props;
-
-    const element = this.ref;
-    sceneParams.triggerElement =
-      sceneParams.triggerElement === null
-        ? null
-        : sceneParams.triggerElement || element;
-
-    this.scene = new ScrollMagic.Scene(sceneParams);
-
-    this.initEventHandlers();
+    initEventHandlers();
 
     if (classToggle) {
-      this.setClassToggle(this.scene, element, classToggle);
+      setClassToggle(scene, element, classToggle);
     }
 
     if (pin || pinSettings) {
-      this.setPin(this.scene, element, pin, pinSettings);
+      setPin(scene, element, pin, pinSettings);
     }
 
     if (indicators) {
-      this.scene.addIndicators({ name: " " });
+      scene.current.addIndicators({ name: " " });
     }
 
     if (enabled !== undefined) {
-      this.scene.enabled(enabled);
+      scene.current.enabled(enabled);
     }
 
-    this.scene.addTo(controller);
-  }
+    return scene.current.destroy;
+  }, []);
 
-  componentDidUpdate(prevProps: SceneBaseProps) {
-    const {
-      duration,
-      offset,
-      triggerElement,
-      triggerHook,
-      reverse,
-      enabled
-    } = this.props;
+  useEffect(() => {
+    controller && scene.current.addTo(controller);
+  }, [controller]);
 
-    if (duration !== undefined && duration !== prevProps.duration) {
-      this.scene.duration(duration);
-    }
+  useEffect(() => {
+    isNumber(duration) && scene.current.duration(duration);
+  }, [duration]);
+  useEffect(() => {
+    isNumber(offset) && scene.current.offset(offset);
+  }, [offset]);
+  useEffect(() => {
+    isTriggerElement(triggerElement) &&
+      scene.current.triggerElement(triggerElement);
+  }, [triggerElement]);
+  useEffect(() => {
+    isTriggerHook(triggerHook) && scene.current.triggerHook(triggerHook);
+  }, [triggerHook]);
+  useEffect(() => {
+    isBoolean(reverse) && scene.current.reverse(reverse);
+  }, [reverse]);
+  useEffect(() => {
+    isBoolean(enabled) && scene.current.enabled(enabled);
+  }, [enabled]);
 
-    if (offset !== undefined && offset !== prevProps.offset) {
-      this.scene.offset(offset);
-    }
-
-    if (
-      triggerElement !== undefined &&
-      triggerElement !== prevProps.triggerElement
-    ) {
-      // this.scene.triggerElement(triggerElement);
-    }
-
-    if (triggerHook !== undefined && triggerHook !== prevProps.triggerHook) {
-      this.scene.triggerHook(triggerHook);
-    }
-
-    if (reverse !== undefined && reverse !== prevProps.reverse) {
-      this.scene.reverse(reverse);
-    }
-
-    if (enabled !== undefined && enabled !== prevProps.enabled) {
-      this.scene.enabled(enabled);
-    }
-  }
-
-  componentWillUnmount() {
-    this.scene.destroy();
-  }
-
-  setClassToggle(scene, element, classToggle) {
+  function setClassToggle(scene, element, classToggle) {
     if (Array.isArray(classToggle) && classToggle.length === 2) {
-      scene.setClassToggle(classToggle[0], classToggle[1]);
+      scene.current.setClassToggle(classToggle[0], classToggle[1]);
     } else {
-      scene.setClassToggle(element, classToggle);
+      scene.current.setClassToggle(element.current, classToggle);
     }
   }
 
-  setPin(scene, element, pin, pinSettings) {
-    element = isString(pin) ? pin : element;
-    scene.setPin(element, pinSettings);
+  function setPin(scene, element, pin, pinSettings) {
+    const pinElement = isString(pin) ? pin : element.current;
+    scene.current.setPin(pinElement, pinSettings);
   }
 
-  initEventHandlers() {
-    let { children, onEnter, onLeave, onToggle } = this.props;
-    const trackEventsInState =
-      typeof children === "function" ||
-      isGSAP(callChildFunction(children, 0, "init"));
-
-    this.scene.on("enter", event => {
-      trackEventsInState && this.setState({
-        event
-      });
-      onEnter && onEnter();
-      onToggle && onToggle(true);
-    });
-
-    this.scene.on("leave", event => {
-      trackEventsInState && this.setState({
-        event
-      });
-      onLeave && onLeave();
-      onToggle && onToggle(false);
-    });
-
-    this.scene.on("start end", event => {
-      trackEventsInState && this.setState({
-        event
-      });
-    });
-
-    this.scene.on("progress", event => {
-      trackEventsInState && this.setState({
-        progress: event.progress
-      });
-    });
-  }
-
-  render() {
-    let { children } = this.props;
-    const { progress, event } = this.state;
-
-    const child = getChild(children, progress, event);
-
-    // TODO: Don't add ref to stateless or stateful components
-
-    return React.cloneElement(child, {
-      [refOrInnerRef(child)]: ref => (this.ref = ref)
-    });
-  }
-}
-
-class SceneWrapper extends React.PureComponent<SceneProps, {}> {
-  static displayName = "Scene";
-
-  render() {
-    if (!this.props.controller) {
-      let { children } = this.props;
-      const progress = 0;
-      const event = "init";
-
-      return getChild(children, progress, event);
+  function initEventHandlers() {
+    if (
+      typeof children !== "function" &&
+      !isGSAP(callChildFunction(children, 0, "init"))
+    ) {
+      return;
     }
 
-    return <SceneBase {...this.props} />;
-  }
-}
+    scene.current.on("start end enter leave", event => {
+      setEvent({ event });
+    });
 
-export const Scene = ({ children, ...props }) => (
-  <ControllerContext.Consumer>
-    {controller => (
-      <SceneWrapper controller={controller} {...props}>
-        {children}
-      </SceneWrapper>
-    )}
-  </ControllerContext.Consumer>
-);
+    scene.current.on("progress", ({ progress }) => {
+      setProgress(progress);
+    });
+  }
+
+  const child = getChild(children, progress, event);
+  if (isTriggerElement(triggerElement)) {
+    return child;
+  }
+  return cloneElement(child, { [refOrInnerRef(child)]: element });
+};
+
+export default function Scene({ children, ...props }) {
+  return (
+    <ControllerContext.Consumer>
+      {controller =>
+        controller ? (
+          <SceneBase controller={controller} {...props}>
+            {children}
+          </SceneBase>
+        ) : (
+          getChild(children, 0, "init")
+        )
+      }
+    </ControllerContext.Consumer>
+  );
+}

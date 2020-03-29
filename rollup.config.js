@@ -1,47 +1,49 @@
-import babel from 'rollup-plugin-babel'
-import commonjs from 'rollup-plugin-commonjs'
-import external from 'rollup-plugin-peer-deps-external'
-import postcss from 'rollup-plugin-postcss'
-import resolve from 'rollup-plugin-node-resolve'
-import url from 'rollup-plugin-url'
-import copy from 'rollup-plugin-cpy'
+import babel from "rollup-plugin-babel";
+import commonjs from "@rollup/plugin-commonjs";
+import external from "rollup-plugin-peer-deps-external";
+import postcss from "rollup-plugin-postcss";
+import resolve from "@rollup/plugin-node-resolve";
+import url from "@rollup/plugin-url";
 
-import pkg from './package.json'
+import pkg from "./package.json";
 
 export default {
-  input: 'src/index.js',
+  input: "src/index.js",
   output: [
     {
       file: pkg.main,
-      format: 'cjs',
+      format: "cjs",
       sourcemap: true
     },
     {
       file: pkg.module,
-      format: 'es',
+      format: "es",
       sourcemap: true
     }
   ],
   plugins: [
-    external(),
     postcss({
-      modules: true
+      plugins: [],
+      minimize: true,
+      sourceMap: "inline"
+    }),
+    external({
+      includeDependencies: true
     }),
     url(),
-    babel({
-      exclude: 'node_modules/**',
-      plugins: [ 'external-helpers' ]
-    }),
     resolve(),
-    commonjs(),
-    /*
-    copy({
-      files: 'src/index.js.flow',
-      dest: 'dist',
-      options: {
-        verbose: true
-      }
-    })
-    */
+    babel({
+      presets: ["react-app"],
+      plugins: [
+        "@babel/plugin-proposal-object-rest-spread",
+        "@babel/plugin-proposal-optional-chaining",
+        "@babel/plugin-syntax-dynamic-import",
+        "@babel/plugin-proposal-class-properties",
+        "transform-react-remove-prop-types"
+      ],
+      exclude: "node_modules/**",
+      runtimeHelpers: true
+    }),
+    commonjs()
   ]
-}
+};
