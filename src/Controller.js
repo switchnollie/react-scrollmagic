@@ -1,55 +1,17 @@
-// @flow
-import { default as React } from 'react';
-import ScrollMagic from './lib/scrollmagic';
+import React, { useState, useEffect } from "react";
+import { ControllerContext } from "./ControllerContext";
+import ScrollMagic from "./lib/scrollmagic";
 
-export type ControllerProps = {
-  children: Node,
-  container?: any,
-  vertical?: boolean,
-  globalSceneOptions?: any,
-  loglevel?: number,
-  refreshInterval?: number,
-
+export default function Controller({ children, ...controllerProps }) {
+  const [controller, setController] = useState(null);
+  useEffect(() => {
+    setController(new ScrollMagic.Controller(controllerProps));
+  }, []);
+  return !controller ? (
+    children
+  ) : (
+    <ControllerContext.Provider value={controller}>
+      {children}
+    </ControllerContext.Provider>
+  );
 }
-
-export type ControllerState = {
-  controller: ?any,
-}
-
-const ControllerContext = React.createContext(null);
-
-class Controller extends React.Component<ControllerProps, ControllerState> {
-  controller: any;
-
-  state: ControllerState = {
-    controller: null,
-  }
-
-  componentDidMount() {
-    const { children, ...controllerProps } = this.props;
-    this.setState({
-      controller: new ScrollMagic.Controller(controllerProps)
-    });
-  }
-
-  componentWillUnmount() {
-    this.controller = null;
-  }
-
-  render() {
-    const { children } = this.props;
-    const { controller } = this.state;
-
-    if (!controller) {
-      return children;
-    }
-
-    return (
-      <ControllerContext.Provider value={controller}>
-        {children}
-      </ControllerContext.Provider>
-    );
-  }
-}
-
-export { Controller, ControllerContext };

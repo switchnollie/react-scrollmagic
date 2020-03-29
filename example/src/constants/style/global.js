@@ -1,6 +1,6 @@
-import { injectGlobal } from 'styled-components';
+import { createGlobalStyle } from "styled-components";
 
-export default injectGlobal`
+export default createGlobalStyle`
   body {
     margin: 0;
     font-family: verdana, sans-serif;

@@ -1,4 +1,2 @@
-import { Controller } from './Controller';
-import { Scene } from './Scene';
-
-export { Controller, Scene };
+export { default as Controller } from "./Controller";
+export { default as Scene } from "./Scene";
