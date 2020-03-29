@@ -73,14 +73,18 @@ const SceneBase = props => {
       "pin",
       "pinSettings",
       "indicators",
-      "enabled"
+      "enabled",
+      "triggerElement"
     ]);
     if (triggerElement === null) {
       element.current = null;
     } else if (isTriggerElement(triggerElement)) {
       element.current = triggerElement;
     }
-    scene.current = new ScrollMagic.Scene(sceneParams);
+    scene.current = new ScrollMagic.Scene({
+      ...sceneParams,
+      triggerElement: element.current
+    });
 
     initEventHandlers();
 
@@ -99,6 +103,7 @@ const SceneBase = props => {
     if (enabled !== undefined) {
       scene.current.enabled(enabled);
     }
+
     return scene.current.destroy;
   }, []);
 
