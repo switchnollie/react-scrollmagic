@@ -1,4 +1,10 @@
-import React, { useRef, useState, useEffect } from "react";
+import React, {
+  useRef,
+  useState,
+  useEffect,
+  Children,
+  cloneElement
+} from "react";
 import { ControllerContext } from "./ControllerContext";
 import {
   objectWithoutKeys,
@@ -35,8 +41,8 @@ const callChildFunction = (children, progress, event) => {
 
 const getChild = (children, progress, event) => {
   let renderedChildren = controlGSAP(children, progress, event);
-  renderedChildren = callChildFunction(children, progress, event);
-  return React.Children.only(renderedChildren);
+  renderedChildren = callChildFunction(renderedChildren, progress, event);
+  return Children.only(renderedChildren);
 };
 
 const SceneBase = props => {
@@ -79,12 +85,11 @@ const SceneBase = props => {
     initEventHandlers();
 
     if (classToggle) {
-      console.log({ classToggle, element, scene, triggerElement });
       setClassToggle(scene, element, classToggle);
     }
 
     if (pin || pinSettings) {
-      setPin(scene.current, element, pin, pinSettings);
+      setPin(scene, element, pin, pinSettings);
     }
 
     if (indicators) {
@@ -130,8 +135,8 @@ const SceneBase = props => {
   }
 
   function setPin(scene, element, pin, pinSettings) {
-    element = isString(pin) ? pin : element;
-    scene.setPin(element, pinSettings);
+    const pinElement = isString(pin) ? pin : element.current;
+    scene.current.setPin(pinElement, pinSettings);
   }
 
   function initEventHandlers() {
@@ -155,7 +160,7 @@ const SceneBase = props => {
   if (isTriggerElement(triggerElement)) {
     return child;
   }
-  return React.cloneElement(child, { [refOrInnerRef(child)]: element });
+  return cloneElement(child, { [refOrInnerRef(child)]: element });
 };
 
 export default function Scene({ children, ...props }) {
