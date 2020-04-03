@@ -21,7 +21,7 @@ import debugAddIndicators from "./lib/debug.addIndicators.js";
 
 debugAddIndicators(ScrollMagic);
 
-const controlGSAP = (child, progress, event) => {
+const controlGSAP = (child, progress) => {
   if (isGSAP(child)) {
     const props = { ...child.props, totalProgress: progress, paused: true };
     return (
@@ -64,6 +64,36 @@ const SceneBase = props => {
   const scene = useRef(null);
   const [event, setEvent] = useState("init");
   const [progress, setProgress] = useState(0);
+
+  function initEventHandlers() {
+    if (
+      typeof children !== "function" &&
+      !isGSAP(callChildFunction(children, 0, "init"))
+    ) {
+      return;
+    }
+
+    scene.current.on("start end enter leave", event => {
+      setEvent({ event });
+    });
+
+    scene.current.on("progress", ({ progress }) => {
+      setProgress(progress);
+    });
+  }
+
+  function setPin(scene, element, pin, pinSettings) {
+    const pinElement = isString(pin) ? pin : element.current;
+    scene.current.setPin(pinElement, pinSettings);
+  }
+
+  function setClassToggle(scene, element, classToggle) {
+    if (Array.isArray(classToggle) && classToggle.length === 2) {
+      scene.current.setClassToggle(classToggle[0], classToggle[1]);
+    } else {
+      scene.current.setClassToggle(element.current, classToggle);
+    }
+  }
 
   useEffect(() => {
     const sceneParams = objectWithoutKeys(props, [
@@ -130,36 +160,6 @@ const SceneBase = props => {
   useEffect(() => {
     isBoolean(enabled) && scene.current.enabled(enabled);
   }, [enabled]);
-
-  function setClassToggle(scene, element, classToggle) {
-    if (Array.isArray(classToggle) && classToggle.length === 2) {
-      scene.current.setClassToggle(classToggle[0], classToggle[1]);
-    } else {
-      scene.current.setClassToggle(element.current, classToggle);
-    }
-  }
-
-  function setPin(scene, element, pin, pinSettings) {
-    const pinElement = isString(pin) ? pin : element.current;
-    scene.current.setPin(pinElement, pinSettings);
-  }
-
-  function initEventHandlers() {
-    if (
-      typeof children !== "function" &&
-      !isGSAP(callChildFunction(children, 0, "init"))
-    ) {
-      return;
-    }
-
-    scene.current.on("start end enter leave", event => {
-      setEvent({ event });
-    });
-
-    scene.current.on("progress", ({ progress }) => {
-      setProgress(progress);
-    });
-  }
 
   const child = getChild(children, progress, event);
   if (isTriggerElement(triggerElement)) {
